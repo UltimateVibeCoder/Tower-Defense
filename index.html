@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Tower Defense</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .game-container {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .title {
+            font-size: 3em;
+            color: #ffd700;
+            text-shadow: 0 0 20px #ffd700;
+            margin-bottom: 20px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #ffd700; }
+            to { text-shadow: 0 0 30px #ffd700, 0 0 40px #ffd700; }
+        }
+        
+        .loading {
+            font-size: 1.2em;
+            color: #00ffff;
+            margin: 20px 0;
+        }
+        
+        .instructions {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            max-width: 600px;
+        }
+        
+        .controls {
+            text-align: left;
+            margin: 10px 0;
+        }
+        
+        .control-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+        
+        #gameCanvas {
+            border: 3px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+        
+        .status {
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+        
+        .error {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="title">🏰 PREMIUM DEFENSE 🏰</h1>
+        
+        <div id="loading" class="loading">
+            Loading game engine... Please wait...
+        </div>
+        
+        <div id="gameArea" style="display: none;">
+            <canvas id="gameCanvas" width="1200" height="800"></canvas>
+            
+            <div class="instructions">
+                <h3>🎮 Game Instructions</h3>
+                <div class="controls">
+                    <div class="control-item"><strong>1️⃣</strong> - Arcane Tower ($50)</div>
+                    <div class="control-item"><strong>2️⃣</strong> - Rapid Fire Tower ($100)</div>
+                    <div class="control-item"><strong>3️⃣</strong> - Heavy Cannon ($150)</div>
+                    <div class="control-item"><strong>D</strong> - Delete mode</div>
+                    <div class="control-item"><strong>ESC</strong> - Exit delete mode</div>
+                    <div class="control-item"><strong>SPACE</strong> - Change speed (1x/2x/3x)</div>
+                    <div class="control-item"><strong>S</strong> - Save game</div>
+                    <div class="control-item"><strong>M</strong> - Main menu</div>
+                    <div class="control-item"><strong>Left Click</strong> - Place/Delete tower</div>
+                    <div class="control-item"><strong>Right Click</strong> - Upgrade tower</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="error" class="error" style="display: none;">
+            Error loading game. Please refresh the page.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script>
+        let pyodide;
+        let gameRunning = false;
+        
+        async function main() {
+            try {
+                const loading = document.getElementById('loading');
+                const gameArea = document.getElementById('gameArea');
+                const error = document.getElementById('error');
+                
+                loading.textContent = 'Initializing Python environment...';
+                
+                // Load Pyodide
+                pyodide = await loadPyodide();
+                
+                loading.textContent = 'Loading pygame...';
+                
+                // Load pygame
+                await pyodide.loadPackage("pygame");
+                
+                loading.textContent = 'Starting game...';
+                
+                // Load and run the game
+                const gameCode = `
+import pygame
+import math
+import random
+import sys
+import json
+import os
+import js
+
+# Initialize Pygame
+pygame.init()
+
+# Constants
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 800
+FPS = 60
+
+# Premium Color Palette
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+GRAY = (128, 128, 128)
+DARK_GRAY = (64, 64, 64)
+BROWN = (139, 69, 19)
+
+# Premium Colors
+DARK_BLUE = (25, 25, 50)
+PURPLE = (128, 0, 128)
+GOLD = (255, 215, 0)
+SILVER = (192, 192, 192)
+DARK_GREEN = (0, 100, 0)
+ORANGE = (255, 165, 0)
+CYAN = (0, 255, 255)
+MAGENTA = (255, 0, 255)
+DARK_RED = (139, 0, 0)
+LIGHT_BLUE = (173, 216, 230)
+DARK_BROWN = (101, 67, 33)
+STONE_GRAY = (105, 105, 105)
+LIGHT_GRAY = (211, 211, 211)
+EMERALD = (80, 200, 120)
+RUBY = (224, 17, 95)
+SAPPHIRE = (15, 82, 186)
+
+class GraphicsManager:
+    def __init__(self):
+        self.animation_frame = 0
+        self.background_stars = []
+        self.particles = []
+        self.generate_background_stars()
+    
+    def generate_background_stars(self):
+        for _ in range(100):
+            star = {
+                'x': random.randint(0, SCREEN_WIDTH),
+                'y': random.randint(0, SCREEN_HEIGHT),
+                'size': random.randint(1, 3),
+                'brightness': random.randint(100, 255),
+                'twinkle_speed': random.uniform(0.02, 0.05)
+            }
+            self.background_stars.append(star)
+    
+    def update_animations(self):
+        self.animation_frame += 1
+        for star in self.background_stars:
+            star['brightness'] = int(150 + 105 * math.sin(self.animation_frame * star['twinkle_speed']))
+    
+    def draw_premium_background(self, screen):
+        for y in range(SCREEN_HEIGHT):
+            color_intensity = int(25 + (y / SCREEN_HEIGHT) * 50)
+            color = (color_intensity // 3, color_intensity // 2, color_intensity)
+            pygame.draw.line(screen, color, (0, y), (SCREEN_WIDTH, y))
+        
+        for star in self.background_stars:
+            color = (star['brightness'], star['brightness'], star['brightness'])
+            pygame.draw.circle(screen, color, (star['x'], star['y']), star['size'])
+    
+    def draw_premium_path(self, screen, path):
+        path_width = 30
+        border_width = 4
+        
+        for i in range(len(path) - 1):
+            start = path[i]
+            end = path[i + 1]
+            
+            dx = end[0] - start[0]
+            dy = end[1] - start[1]
+            length = math.sqrt(dx*dx + dy*dy)
+            if length > 0:
+                perp_x = -dy / length
+                perp_y = dx / length
+                
+                corners = [
+                    (start[0] + perp_x * path_width, start[1] + perp_y * path_width),
+                    (start[0] - perp_x * path_width, start[1] - perp_y * path_width),
+                    (end[0] - perp_x * path_width, end[1] - perp_y * path_width),
+                    (end[0] + perp_x * path_width, end[1] + perp_y * path_width)
+                ]
+                
+                pygame.draw.polygon(screen, STONE_GRAY, corners)
+                pygame.draw.polygon(screen, LIGHT_GRAY, corners, border_width)
+                
+                pygame.draw.circle(screen, STONE_GRAY, (int(start[0]), int(start[1])), path_width)
+                pygame.draw.circle(screen, LIGHT_GRAY, (int(start[0]), int(start[1])), path_width, border_width)
+                
+                for j in range(2):
+                    offset = (j - 0.5) * path_width * 0.6
+                    texture_start = (start[0] + perp_x * offset, start[1] + perp_y * offset)
+                    texture_end = (end[0] + perp_x * offset, end[1] + perp_y * offset)
+                    pygame.draw.line(screen, DARK_GRAY, texture_start, texture_end, 2)
+        
+        if len(path) > 0:
+            final_point = path[-1]
+            pygame.draw.circle(screen, STONE_GRAY, (int(final_point[0]), int(final_point[1])), path_width)
+            pygame.draw.circle(screen, LIGHT_GRAY, (int(final_point[0]), int(final_point[1])), path_width, border_width)
+
+# Simplified game class for web
+class WebGame:
+    def __init__(self):
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        pygame.display.set_caption("Premium Tower Defense")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        
+        self.graphics = GraphicsManager()
+        
+        self.player_health = 100
+        self.player_money = 500
+        self.wave_number = 1
+        self.enemies_spawned = 0
+        self.enemies_per_wave = 5
+        self.wave_timer = 0
+        self.wave_delay = 3000
+        
+        self.enemies = []
+        self.towers = []
+        self.projectiles = []
+        self.path = self.create_path()
+        
+        self.selected_tower_type = "basic"
+        self.delete_mode = False
+        self.game_speed = 1.0
+        self.game_state = "menu"
+        
+        self.font = pygame.font.Font(None, 36)
+        self.small_font = pygame.font.Font(None, 24)
+    
+    def create_path(self):
+        path_points = [
+            (0, SCREEN_HEIGHT // 2),
+            (200, SCREEN_HEIGHT // 2),
+            (200, SCREEN_HEIGHT // 2 - 100),
+            (400, SCREEN_HEIGHT // 2 - 100),
+            (400, SCREEN_HEIGHT // 2 + 100),
+            (600, SCREEN_HEIGHT // 2 + 100),
+            (600, SCREEN_HEIGHT // 2 - 50),
+            (800, SCREEN_HEIGHT // 2 - 50),
+            (800, SCREEN_HEIGHT // 2 + 50),
+            (1000, SCREEN_HEIGHT // 2 + 50),
+            (1000, SCREEN_HEIGHT // 2),
+            (SCREEN_WIDTH, SCREEN_HEIGHT // 2)
+        ]
+        return path_points
+    
+    def draw_main_menu(self):
+        for i in range(30):
+            particle_x = (i * 40 + self.graphics.animation_frame * 2) % (SCREEN_WIDTH + 40) - 20
+            particle_y = SCREEN_HEIGHT // 2 + int(50 * math.sin((i + self.graphics.animation_frame * 0.02) * 0.1))
+            particle_color = (random.randint(100, 200), random.randint(100, 200), random.randint(100, 200))
+            pygame.draw.circle(self.screen, particle_color, (particle_x, particle_y), random.randint(1, 3))
+        
+        title_font = pygame.font.Font(None, 100)
+        subtitle_font = pygame.font.Font(None, 50)
+        
+        glow_intensity = int(100 + 50 * math.sin(self.graphics.animation_frame * 0.05))
+        title_text = title_font.render("PREMIUM DEFENSE", True, GOLD)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 120))
+        
+        for i in range(5):
+            glow_color = (glow_intensity - i * 20, glow_intensity - i * 20, 0)
+            glow_text = title_font.render("PREMIUM DEFENSE", True, glow_color)
+            glow_rect = glow_text.get_rect(center=(SCREEN_WIDTH // 2 + i, SCREEN_HEIGHT // 2 - 120 + i))
+            self.screen.blit(glow_text, glow_rect)
+        
+        self.screen.blit(title_text, title_rect)
+        
+        subtitle_text = subtitle_font.render("Tower Defense Mastery", True, CYAN)
+        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 70))
+        self.screen.blit(subtitle_text, subtitle_rect)
+        
+        menu_font = pygame.font.Font(None, 42)
+        
+        new_game_text = menu_font.render("SPACE - New Game", True, WHITE)
+        new_game_rect = new_game_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 10))
+        
+        button_rect = new_game_rect.inflate(20, 10)
+        pygame.draw.rect(self.screen, DARK_BLUE, button_rect)
+        pygame.draw.rect(self.screen, LIGHT_BLUE, button_rect, 2)
+        self.screen.blit(new_game_text, new_game_rect)
+        
+        instructions = [
+            "⚔️  Defend your realm from mythical creatures!",
+            "🏰  Build and upgrade powerful towers",
+            "💎  Collect gems and manage resources",
+            "🌟  Survive the endless waves of darkness!"
+        ]
+        
+        for i, instruction in enumerate(instructions):
+            text = self.small_font.render(instruction, True, LIGHT_GRAY)
+            text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 120 + i * 30))
+            self.screen.blit(text, text_rect)
+        
+        version_text = self.small_font.render("Web Edition v1.0", True, GRAY)
+        version_rect = version_text.get_rect(bottomright=(SCREEN_WIDTH - 10, SCREEN_HEIGHT - 10))
+        self.screen.blit(version_text, version_rect)
+    
+    def run(self):
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if self.game_state == "menu":
+                            self.game_state = "playing"
+            
+            self.graphics.update_animations()
+            
+            if self.game_state == "menu":
+                self.graphics.draw_premium_background(self.screen)
+                self.draw_main_menu()
+            else:
+                self.graphics.draw_premium_background(self.screen)
+                self.graphics.draw_premium_path(self.screen, self.path)
+            
+            pygame.display.flip()
+            self.clock.tick(FPS)
+            
+            # Check if we should continue (web-specific)
+            if not gameRunning:
+                break
+        
+        pygame.quit()
+
+# Global game instance
+game = None
+
+def start_game():
+    global game
+    game = WebGame()
+    game.run()
+
+# Start the game
+start_game()
+                `;
+                
+                pyodide.runPython(gameCode);
+                
+                loading.style.display = 'none';
+                gameArea.style.display = 'block';
+                gameRunning = true;
+                
+            } catch (err) {
+                console.error('Error:', err);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error loading game: ' + err.message;
+            }
+        }
+        
+        // Start the game when page loads
+        main();
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            gameRunning = false;
+        });
+    </script>
+</body>
+</html>
